@@ -90,6 +90,11 @@ import '../styles/global.css';
         let scrubVel = 0;      // flick velocity (s per frame) after release
         let autoPlaying = true; // true = native playback; false = we drive currentTime
 
+        // Interaction is gated until the clip is fully buffered into an in-memory
+        // blob: URL (see below) so the first seek can't stall on the network.
+        let ready = false;
+        let blobUrl: string | null = null;
+
         const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
 
         // Drag sensitivity: how many seconds of spin per pixel dragged. Tuned so
@@ -198,18 +203,22 @@ import '../styles/global.css';
         };
 
         const startInteractive = () => {
-          if (!autoPlaying) return;
+          // Wait until the clip is fully in memory (blob:) so the first seek is
+          // instant instead of stalling on a range request the host may refuse.
+          if (!ready) return false;
+          if (!autoPlaying) return true;
           autoPlaying = false;
           video.pause();
           scrubTime = video.currentTime;
           scrubVel = 0;
+          return true;
         };
 
         object.addEventListener('pointerdown', (event) => {
           if (pointerId !== null) return;
           // Only grab if the press landed on the gold figure itself.
           if (!isOnFigure(event.clientX, event.clientY)) return;
-          startInteractive();
+          if (!startInteractive()) return; // still buffering — ignore the grab
           pointerId = event.pointerId;
           pointerX = event.clientX;
           scrubVel = 0;
@@ -245,11 +254,11 @@ import '../styles/global.css';
         object.addEventListener('keydown', (event) => {
           const step = (event.shiftKey ? 2 : 0.5); // seconds of spin per press
           if (event.key === 'ArrowLeft' || event.key === 'ArrowUp') {
-            startInteractive();
+            if (!startInteractive()) return;
             scrubTime = wrap(scrubTime - step);
             scrubVel = 0;
           } else if (event.key === 'ArrowRight' || event.key === 'ArrowDown') {
-            startInteractive();
+            if (!startInteractive()) return;
             scrubTime = wrap(scrubTime + step);
             scrubVel = 0;
           } else if (event.key === 'Escape') {
@@ -270,8 +279,44 @@ import '../styles/global.css';
         video.addEventListener('loadeddata', grabFrame);
         frame = requestAnimationFrame(render);
 
+        // --- Load the whole clip into memory for instant, host-independent seeking ---
+        // Seeking a streamed <video> needs HTTP range requests to fetch bytes
+        // ahead of the playhead. Some hosts (e.g. Cloudflare Workers static
+        // assets) don't serve ranges, so a seek stalls and the figure freezes.
+        // Fetching the file once and playing it from an in-memory blob: URL makes
+        // every seek local and instant regardless of the host. Interaction is
+        // gated until this resolves so an early grab waits instead of freezing.
+        const enableInteraction = () => { ready = true; };
+
+        fetch('/media/gold-spinning-logo.mp4')
+          .then((res) => (res.ok ? res.blob() : Promise.reject(new Error(String(res.status)))))
+          .then((blob) => {
+            blobUrl = URL.createObjectURL(blob);
+            const wasPlaying = autoPlaying && !video.paused;
+            const resumeAt = video.currentTime;
+            video.src = blobUrl;
+            video.addEventListener(
+              'loadeddata',
+              () => {
+                // Restore position and playback state after the source swap.
+                try { video.currentTime = resumeAt; } catch {}
+                if (wasPlaying) void video.play();
+                enableInteraction();
+                grabFrame();
+              },
+              { once: true },
+            );
+            video.load();
+          })
+          .catch(() => {
+            // If the fetch fails, fall back to the streamed <source>. Seeking may
+            // stall on range-less hosts, but auto-play still works.
+            enableInteraction();
+          });
+
         document.addEventListener('astro:before-swap', () => {
           cancelAnimationFrame(frame);
+          if (blobUrl) URL.revokeObjectURL(blobUrl);
         });
       }
     </script>
