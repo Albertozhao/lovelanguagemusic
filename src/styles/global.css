@@ -1,0 +1,231 @@
+:root {
+  color-scheme: dark;
+  background: #000;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+  background: #000;
+}
+
+body {
+  overscroll-behavior: none;
+}
+
+.viewport {
+  position: relative;
+  isolation: isolate;
+  width: 100%;
+  height: 100svh;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 50% 48%, #160d04 0, #080402 26%, #000 67%),
+    #000;
+}
+
+.viewport::before {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 180 180' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.9'/%3E%3C/svg%3E");
+  content: '';
+  opacity: 0.04;
+  pointer-events: none;
+}
+
+.ambient {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: min(82vw, 1200px);
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: rgba(183, 91, 12, 0.15);
+  filter: blur(12vw);
+  pointer-events: none;
+  transform: translate(-50%, -50%);
+}
+
+.scene {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  perspective: 1100px;
+  perspective-origin: 50% 48%;
+}
+
+.object {
+  --light-x: 50%;
+  --light-y: 45%;
+  position: relative;
+  width: min(96vw, 1500px);
+  aspect-ratio: 16 / 9;
+  outline: none;
+  touch-action: none;
+  user-select: none;
+}
+
+.object.over-figure {
+  cursor: grab;
+}
+
+.object:not(.over-figure) {
+  cursor: default;
+}
+
+.object.is-dragging {
+  cursor: grabbing;
+}
+
+.object:focus-visible::after {
+  position: absolute;
+  inset: 8%;
+  border: 1px solid rgba(255, 187, 83, 0.28);
+  content: '';
+  pointer-events: none;
+  transform: translateZ(34px);
+}
+
+/*
+ * The gold figurine. Orientation comes from scrubbing the pre-rendered spin
+ * video (see script), not from CSS rotation — so it always reads as a solid
+ * 3D object and never flattens to a plane. A slight settle scale on grab adds
+ * tactility without ever tilting the plane edge-on.
+ */
+.figure {
+  position: absolute;
+  inset: 0;
+  transform: scale(var(--grab-scale, 1));
+  transition: transform 220ms ease;
+  will-change: transform;
+}
+
+.media,
+.depth {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.media {
+  overflow: hidden;
+  mix-blend-mode: screen;
+  transform: translateZ(42px);
+  transform-style: preserve-3d;
+  /* Feather the plane edges so the 16:9 video frame never reads as a hard box. */
+  -webkit-mask-image: radial-gradient(ellipse 66% 66% at 50% 50%, #000 48%, transparent 82%);
+  mask-image: radial-gradient(ellipse 66% 66% at 50% 50%, #000 48%, transparent 82%);
+}
+
+.media video {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  /*
+   * The source video is limited-range yuv420p, so its "black" decodes to ~6% gray.
+   * Crushing the blacks with contrast pushes that back to true 0,0,0 which the
+   * screen blend mode then drops out completely — killing the black box.
+   */
+  filter: saturate(1.16) contrast(1.42) brightness(1.04);
+}
+
+.depth {
+  background:
+    radial-gradient(ellipse at 50% 53%, rgba(255, 145, 24, 0.34) 0 15%, rgba(94, 32, 0, 0.19) 25%, transparent 54%);
+  filter: blur(30px);
+  mix-blend-mode: screen;
+}
+
+.depth-mid {
+  opacity: 0.55;
+  transform: translateZ(-24px) scale(0.99);
+}
+
+.depth-back {
+  opacity: 0.34;
+  transform: translateZ(-72px) scale(0.96);
+}
+
+.specular {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(
+      circle at var(--light-x) var(--light-y),
+      rgba(255, 240, 195, 0.17),
+      rgba(255, 170, 46, 0.05) 16%,
+      transparent 36%
+    );
+  mix-blend-mode: screen;
+  opacity: 0.9;
+  transition: opacity 180ms ease;
+}
+
+.object.is-dragging .specular {
+  opacity: 1;
+}
+
+/*
+ * Instagram link pinned to the bottom of the viewport. The glyph is a
+ * transparent inline SVG (currentColor strokes on nothing) so it sits over the
+ * black scene without a fill box, echoing the gold palette of the figurine.
+ */
+.social {
+  position: absolute;
+  bottom: max(24px, env(safe-area-inset-bottom));
+  left: 50%;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  color: rgba(255, 187, 83, 0.55);
+  transition: color 200ms ease, transform 200ms ease;
+  transform: translateX(-50%);
+}
+
+.social:hover,
+.social:focus-visible {
+  color: rgba(255, 205, 120, 0.95);
+  outline: none;
+  transform: translateX(-50%) scale(1.08);
+}
+
+.social svg {
+  width: 26px;
+  height: 26px;
+  display: block;
+  filter: drop-shadow(0 0 10px rgba(255, 145, 24, 0.35));
+}
+
+@media (max-width: 700px) {
+  .viewport {
+    background:
+      radial-gradient(circle at 50% 48%, #180e05 0, #070301 34%, #000 76%),
+      #000;
+  }
+
+  .scene {
+    perspective: 760px;
+  }
+
+  .object {
+    width: 132vw;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .figure {
+    transform: none;
+  }
+}

@@ -1,0 +1,10 @@
+node_modules
+dist
+.astro
+.DS_Store
+.claude
+.wrangler
+screenshots
+
+# Master render kept locally for re-encoding; the site serves the .mp4 only.
+public/media/gold-spinning-logo.mov

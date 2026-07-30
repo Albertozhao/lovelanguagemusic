@@ -1,0 +1,279 @@
+---
+import '../styles/global.css';
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width" />
+    <meta name="theme-color" content="#000000" />
+    <meta name="description" content="Love Language Music" />
+    <link rel="icon" href="/favicon.ico" sizes="any" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
+    <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16.png" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="manifest" href="/site.webmanifest" />
+    <title>Love Language Music</title>
+  </head>
+  <body>
+    <main class="viewport">
+      <div class="ambient" aria-hidden="true"></div>
+
+      <div class="scene">
+        <div
+          class="object"
+          id="gold-object"
+          role="img"
+          tabindex="0"
+          aria-label="Interactive gold Love Language Music sculpture. Drag the figurine to rotate it in 3D."
+        >
+          <!-- Ambient glow behind the figure. Purely atmospheric; never moves. -->
+          <div class="depth depth-back" aria-hidden="true"></div>
+          <div class="depth depth-mid" aria-hidden="true"></div>
+
+          <!--
+            The figurine is a pre-rendered 3D spin. Dragging scrubs the video, so
+            you rotate the actual rendered object — it stays dimensional at every
+            angle instead of collapsing like a rotated flat plane would.
+          -->
+          <div class="figure" id="gold-figure">
+            <div class="media">
+              <!--
+                All-intra (every-frame-keyframe) H.264 so drag-scrubbing seeks
+                to any frame instantly. A normal sparse-keyframe encode forces
+                the decoder to walk from the prior keyframe on every seek, which
+                is what made scrubbing lag. Single source: universally supported
+                and avoids falling back to a non-intra file that would re-lag.
+              -->
+              <video id="gold-video" autoplay muted loop playsinline preload="auto" crossorigin="anonymous" poster="/media/gold-spinning-logo-poster.png">
+                <source src="/media/gold-spinning-logo.mp4" type="video/mp4" />
+              </video>
+              <div class="specular" aria-hidden="true"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <a
+        class="social"
+        href="https://www.instagram.com/lovelanguage.music/?hl=en"
+        target="_blank"
+        rel="noopener noreferrer"
+        aria-label="Love Language Music on Instagram"
+      >
+        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <rect x="2.5" y="2.5" width="19" height="19" rx="5.5" stroke="currentColor" stroke-width="1.6" />
+          <circle cx="12" cy="12" r="4.2" stroke="currentColor" stroke-width="1.6" />
+          <circle cx="17.4" cy="6.6" r="1.2" fill="currentColor" />
+        </svg>
+      </a>
+    </main>
+
+    <script>
+      const object = document.querySelector<HTMLElement>('#gold-object');
+      const figure = document.querySelector<HTMLElement>('#gold-figure');
+      const video = document.querySelector<HTMLVideoElement>('#gold-video');
+
+      if (object && figure && video) {
+        // The video is a 60s pre-rendered 3D spin of the figurine. Dragging
+        // scrubs its timeline, so we rotate the ACTUAL rendered object — it
+        // stays solid and dimensional from every angle and can never collapse
+        // to a flat line the way a CSS-rotated plane does. Let go and it keeps
+        // spinning on its own from wherever you left it.
+        let pointerId: number | null = null;
+        let pointerX = 0;
+        let frame = 0;
+
+        // Scrub state, in seconds of video time.
+        let scrubTime = 0;     // where we want the video's currentTime to be
+        let scrubVel = 0;      // flick velocity (s per frame) after release
+        let autoPlaying = true; // true = native playback; false = we drive currentTime
+
+        const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+
+        // Drag sensitivity: how many seconds of spin per pixel dragged. Tuned so
+        // a comfortable drag across the figure turns it a good part of a rotation.
+        const SECONDS_PER_PX = 0.012;
+
+        // --- Pixel sampling: is a point on the gold shape (not the black)? ---
+        // Draw the current frame into a tiny canvas and read luminance under the
+        // cursor. The lit gold is bright; the black surround is dark, so a
+        // threshold isolates the figure. The plane never tilts, so the cursor
+        // maps straight to texture UV — no inverse transform needed.
+        const SAMPLE_W = 128;
+        const SAMPLE_H = 72;
+        const LUMA_THRESHOLD = 24; // 0–255; low so the soft glow edges/arms count
+        const GRAB_RADIUS = 4;     // sample cells around the cursor: dilates the
+                                   // hit region so thin arms & corners grab easily
+        const canvas = document.createElement('canvas');
+        canvas.width = SAMPLE_W;
+        canvas.height = SAMPLE_H;
+        const ctx = canvas.getContext('2d', { willReadFrequently: true });
+        let frameData: ImageData | null = null;
+        let sampleReady = false;
+
+        const grabFrame = () => {
+          if (!ctx || video.readyState < 2 || video.videoWidth === 0) return;
+          try {
+            ctx.drawImage(video, 0, 0, SAMPLE_W, SAMPLE_H);
+            frameData = ctx.getImageData(0, 0, SAMPLE_W, SAMPLE_H);
+            sampleReady = true;
+          } catch {
+            sampleReady = false; // fail open rather than break interaction
+          }
+        };
+
+        const isOnFigure = (clientX: number, clientY: number) => {
+          const rect = video.getBoundingClientRect();
+          const u = (clientX - rect.left) / rect.width;
+          const v = (clientY - rect.top) / rect.height;
+          if (u < 0 || u > 1 || v < 0 || v > 1) return false;
+          if (!sampleReady || !frameData) return true; // fail open
+
+          const cx = Math.round(u * SAMPLE_W);
+          const cy = Math.round(v * SAMPLE_H);
+          const d = frameData.data;
+          // Grabbable if ANY sampled pixel within GRAB_RADIUS is lit gold. This
+          // fattens the effective silhouette so the edges and corners of the
+          // figure — not just its bright core — are easy to grab.
+          for (let dy = -GRAB_RADIUS; dy <= GRAB_RADIUS; dy++) {
+            const py = cy + dy;
+            if (py < 0 || py >= SAMPLE_H) continue;
+            for (let dx = -GRAB_RADIUS; dx <= GRAB_RADIUS; dx++) {
+              const px = cx + dx;
+              if (px < 0 || px >= SAMPLE_W) continue;
+              const i = (py * SAMPLE_W + px) * 4;
+              const luma = 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2];
+              if (luma >= LUMA_THRESHOLD) return true;
+            }
+          }
+          return false;
+        };
+
+        // Wrap a time value into [0, duration) so the spin loops seamlessly in
+        // both directions.
+        const wrap = (t: number) => {
+          const dur = video.duration;
+          if (!dur || !isFinite(dur)) return Math.max(0, t);
+          return ((t % dur) + dur) % dur;
+        };
+
+        // Seeking is async: setting currentTime while a previous seek is still
+        // in flight just cancels it, so firing one every animation frame makes
+        // the decoder thrash and lag. Gate it — only issue the next seek once
+        // the last `seeked` event lands, and always aim at the latest target.
+        let seeking = false;
+        video.addEventListener('seeked', () => {
+          seeking = false;
+        });
+
+        const applySeek = () => {
+          if (seeking || video.readyState < 2) return;
+          const target = wrap(scrubTime);
+          if (Math.abs(target - video.currentTime) < 0.001) return; // already there
+          seeking = true;
+          video.currentTime = target;
+        };
+
+        let sampleTick = 0;
+        const render = () => {
+          if (!autoPlaying) {
+            // Coast on flick momentum after release, decaying to a slow idle
+            // spin so the figure keeps turning gently on its own.
+            if (pointerId === null && !reducedMotion.matches) {
+              scrubVel *= 0.94;
+              const idle = 1 / 30; // ~1x-ish idle drift (one frame's worth per frame)
+              if (Math.abs(scrubVel) < idle) scrubVel += (idle - scrubVel) * 0.05;
+              scrubTime += scrubVel;
+            }
+            applySeek();
+          }
+
+          // Sample the visible frame a few times a second for gold hit-testing
+          // and to drive the specular highlight position.
+          if ((sampleTick++ & 7) === 0) grabFrame();
+
+          frame = requestAnimationFrame(render);
+        };
+
+        const startInteractive = () => {
+          if (!autoPlaying) return;
+          autoPlaying = false;
+          video.pause();
+          scrubTime = video.currentTime;
+          scrubVel = 0;
+        };
+
+        object.addEventListener('pointerdown', (event) => {
+          if (pointerId !== null) return;
+          // Only grab if the press landed on the gold figure itself.
+          if (!isOnFigure(event.clientX, event.clientY)) return;
+          startInteractive();
+          pointerId = event.pointerId;
+          pointerX = event.clientX;
+          scrubVel = 0;
+          object.setPointerCapture(event.pointerId);
+          object.classList.add('is-dragging');
+        });
+
+        object.addEventListener('pointermove', (event) => {
+          if (event.pointerId !== pointerId) {
+            object.classList.toggle('over-figure', isOnFigure(event.clientX, event.clientY));
+            return;
+          }
+          const deltaX = event.clientX - pointerX;
+          pointerX = event.clientX;
+          const dt = deltaX * SECONDS_PER_PX;
+          scrubTime = wrap(scrubTime + dt);
+          scrubVel = dt; // remember last motion for flick momentum
+        });
+
+        object.addEventListener('pointerleave', () => {
+          object.classList.remove('over-figure');
+        });
+
+        const release = (event: PointerEvent) => {
+          if (event.pointerId !== pointerId) return;
+          pointerId = null;
+          object.classList.remove('is-dragging');
+        };
+
+        object.addEventListener('pointerup', release);
+        object.addEventListener('pointercancel', release);
+
+        object.addEventListener('keydown', (event) => {
+          const step = (event.shiftKey ? 2 : 0.5); // seconds of spin per press
+          if (event.key === 'ArrowLeft' || event.key === 'ArrowUp') {
+            startInteractive();
+            scrubTime = wrap(scrubTime - step);
+            scrubVel = 0;
+          } else if (event.key === 'ArrowRight' || event.key === 'ArrowDown') {
+            startInteractive();
+            scrubTime = wrap(scrubTime + step);
+            scrubVel = 0;
+          } else if (event.key === 'Escape') {
+            // Hand control back to native looping playback.
+            autoPlaying = true;
+            void video.play();
+          } else {
+            return;
+          }
+          event.preventDefault();
+        });
+
+        object.addEventListener('dblclick', () => {
+          autoPlaying = true;
+          void video.play();
+        });
+
+        video.addEventListener('loadeddata', grabFrame);
+        frame = requestAnimationFrame(render);
+
+        document.addEventListener('astro:before-swap', () => {
+          cancelAnimationFrame(frame);
+        });
+      }
+    </script>
+  </body>
+</html>

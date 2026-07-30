@@ -1,0 +1,11 @@
+{
+  "name": "Love Language Music",
+  "short_name": "Love Language",
+  "icons": [
+    { "src": "/icon-192.png", "type": "image/png", "sizes": "192x192" },
+    { "src": "/icon-512.png", "type": "image/png", "sizes": "512x512" }
+  ],
+  "theme_color": "#0a0500",
+  "background_color": "#000000",
+  "display": "standalone"
+}
