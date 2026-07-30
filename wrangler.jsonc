@@ -1,5 +1,10 @@
 {
   "name": "love-language-music",
-  "pages_build_output_dir": "./dist",
-  "compatibility_date": "2026-07-29"
+  "compatibility_date": "2026-07-29",
+  // Serve the Astro static build as a Worker with static assets. This deploys
+  // with the Workers-scoped token that Workers Builds provides (Pages deploys
+  // would need a separate Pages-scoped token).
+  "assets": {
+    "directory": "./dist"
+  }
 }
