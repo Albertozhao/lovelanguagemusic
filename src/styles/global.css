@@ -285,7 +285,7 @@ body {
   left: max(24px, env(safe-area-inset-left));
   z-index: 2;
   font-family: 'Cinzel', 'Times New Roman', serif;
-  font-size: 0.72rem;
+  font-size: 0.936rem;
   font-weight: 700;
   letter-spacing: 0.22em;
   text-transform: uppercase;
