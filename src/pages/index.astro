@@ -14,6 +14,16 @@ import '../styles/global.css';
     <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16.png" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <link rel="manifest" href="/site.webmanifest" />
+    <!--
+      The Listen embed (Komi) is mounted hidden on this page and booted in the
+      background so it's already rendered the instant Listen is clicked. Warm
+      the connection to Komi immediately so that background boot starts without
+      a cold DNS+TLS round-trip.
+    -->
+    <link rel="preconnect" href="https://lovelanguage.komi.io" crossorigin />
+    <link rel="preconnect" href="https://cdn.komi.io" crossorigin />
+    <link rel="dns-prefetch" href="https://lovelanguage.komi.io" />
+    <link rel="dns-prefetch" href="https://cdn.komi.io" />
     <title>Love Language Music</title>
   </head>
   <body>
@@ -55,20 +65,73 @@ import '../styles/global.css';
         </div>
       </div>
 
-      <a
-        class="social"
-        href="https://www.instagram.com/lovelanguage.music/?hl=en"
-        target="_blank"
-        rel="noopener noreferrer"
-        aria-label="Love Language Music on Instagram"
-      >
-        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-          <rect x="2.5" y="2.5" width="19" height="19" rx="5.5" stroke="currentColor" stroke-width="1.6" />
-          <circle cx="12" cy="12" r="4.2" stroke="currentColor" stroke-width="1.6" />
-          <circle cx="17.4" cy="6.6" r="1.2" fill="currentColor" />
-        </svg>
-      </a>
+      <!--
+        Listen is an <a> to /about for no-JS / crawlers, but with JS it opens
+        the overlay below instead (whose iframe is already booted), so the embed
+        appears instantly with no page navigation and no spinner.
+      -->
+      <a class="nav-link" id="listen-link" href="/about">Listen</a>
     </main>
+
+    <!--
+      Pre-mounted Komi embed. It loads and boots in the background from page
+      load while hidden (opacity 0, not display:none — a display:none iframe
+      won't render), so clicking Listen just reveals an already-rendered embed.
+    -->
+    <div class="listen-overlay" id="listen-overlay" aria-hidden="true">
+      <button class="listen-close" id="listen-close" type="button" aria-label="Close">
+        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" />
+        </svg>
+      </button>
+      <iframe
+        class="listen-frame"
+        id="listen-frame"
+        src="https://lovelanguage.komi.io/"
+        title="Love Language on Komi"
+        loading="eager"
+        fetchpriority="high"
+        referrerpolicy="no-referrer-when-downgrade"
+        allow="clipboard-write; encrypted-media; picture-in-picture; web-share"
+        allowfullscreen
+      ></iframe>
+    </div>
+
+    <script>
+      // Reveal the pre-booted Komi embed instantly. The iframe (below) has been
+      // loading in the background since page load, so opening the overlay just
+      // fades in an already-rendered embed — no navigation, no spinner. The
+      // <a href="/about"> still works if JS is disabled.
+      const listenLink = document.getElementById('listen-link');
+      const overlay = document.getElementById('listen-overlay');
+      const closeBtn = document.getElementById('listen-close');
+
+      if (listenLink && overlay && closeBtn) {
+        const open = (event: Event) => {
+          event.preventDefault();
+          overlay.classList.add('is-open');
+          overlay.setAttribute('aria-hidden', 'false');
+          document.body.classList.add('overlay-open');
+          closeBtn.focus();
+        };
+        const close = () => {
+          overlay.classList.remove('is-open');
+          overlay.setAttribute('aria-hidden', 'true');
+          document.body.classList.remove('overlay-open');
+          listenLink.focus();
+        };
+
+        listenLink.addEventListener('click', open);
+        closeBtn.addEventListener('click', close);
+        // Click the dark backdrop (but not the frame itself) to dismiss.
+        overlay.addEventListener('click', (event) => {
+          if (event.target === overlay) close();
+        });
+        document.addEventListener('keydown', (event) => {
+          if (event.key === 'Escape' && overlay.classList.contains('is-open')) close();
+        });
+      }
+    </script>
 
     <script>
       const object = document.querySelector<HTMLElement>('#gold-object');

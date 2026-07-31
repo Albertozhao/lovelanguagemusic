@@ -1,3 +1,19 @@
+/*
+ * Cinzel — a classical, high-contrast inscriptional Roman capitals face, the
+ * closest free match to the Trajan-style lettering in the brand lockup. Self
+ * hosted (woff2) so the type loads with no external CDN request, matching the
+ * site's all-assets-local approach. The single subset file covers the weight
+ * range; we expose it as both 400 and 700. Licensed under the SIL OFL — see
+ * /fonts/Cinzel-LICENSE.txt.
+ */
+@font-face {
+  font-family: 'Cinzel';
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+  src: url('/fonts/cinzel.woff2') format('woff2');
+}
+
 :root {
   color-scheme: dark;
   background: #000;
@@ -175,39 +191,6 @@ body {
   opacity: 1;
 }
 
-/*
- * Instagram link pinned to the bottom of the viewport. The glyph is a
- * transparent inline SVG (currentColor strokes on nothing) so it sits over the
- * black scene without a fill box, echoing the gold palette of the figurine.
- */
-.social {
-  position: absolute;
-  bottom: max(24px, env(safe-area-inset-bottom));
-  left: 50%;
-  z-index: 2;
-  display: grid;
-  place-items: center;
-  width: 44px;
-  height: 44px;
-  color: rgba(255, 187, 83, 0.55);
-  transition: color 200ms ease, transform 200ms ease;
-  transform: translateX(-50%);
-}
-
-.social:hover,
-.social:focus-visible {
-  color: rgba(255, 205, 120, 0.95);
-  outline: none;
-  transform: translateX(-50%) scale(1.08);
-}
-
-.social svg {
-  width: 26px;
-  height: 26px;
-  display: block;
-  filter: drop-shadow(0 0 10px rgba(255, 145, 24, 0.35));
-}
-
 @media (max-width: 700px) {
   .viewport {
     background:
@@ -228,4 +211,164 @@ body {
   .figure {
     transform: none;
   }
+}
+
+/*
+ * Classical display title in the brand's Roman-capitals style. All-caps, high
+ * stroke contrast (Cinzel), wide tracking, and a warm gold glow drawn from the
+ * same amber palette as the figurine so it reads as lit metal on black.
+ */
+.display-title {
+  margin: 0;
+  font-family: 'Cinzel', 'Times New Roman', serif;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  line-height: 1.04;
+  text-align: center;
+  color: rgba(255, 205, 120, 0.96);
+  text-shadow:
+    0 0 24px rgba(255, 145, 24, 0.35),
+    0 0 4px rgba(255, 187, 83, 0.4);
+}
+
+/*
+ * The About page shares the black warm-gold theme but, unlike the home page's
+ * locked full-screen figurine, it must scroll once real content is added. These
+ * rules are scoped to `.about*` so the home page stays overflow-hidden.
+ */
+.viewport.about {
+  height: auto;
+  min-height: 100svh;
+  overflow-y: auto;
+}
+
+.about-content {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.5rem;
+  min-height: 100svh;
+  padding: clamp(3rem, 10vh, 8rem) clamp(1.25rem, 6vw, 4rem);
+}
+
+.about-content .display-title {
+  font-size: clamp(1rem, 3.2vw, 2.4rem);
+}
+
+/* Embedded Komi profile — fills the width, tall enough to scroll its content. */
+.about-embed {
+  width: min(100%, 900px);
+  height: min(80svh, 900px);
+  border: 0;
+  border-radius: 14px;
+  background: transparent;
+  color-scheme: normal;
+}
+
+/*
+ * Small ABOUT link pinned to the top-left corner of the home page, in the same
+ * gold Cinzel treatment as the site's other affordances.
+ */
+.nav-link {
+  position: absolute;
+  top: max(24px, env(safe-area-inset-top));
+  left: max(24px, env(safe-area-inset-left));
+  z-index: 2;
+  font-family: 'Cinzel', 'Times New Roman', serif;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  text-decoration: none;
+  color: rgba(255, 187, 83, 0.55);
+  transition: color 200ms ease, transform 200ms ease;
+}
+
+.nav-link:hover,
+.nav-link:focus-visible {
+  color: rgba(255, 205, 120, 0.95);
+  outline: none;
+  text-shadow: 0 0 10px rgba(255, 145, 24, 0.35);
+}
+
+/*
+ * Full-screen Listen overlay holding the pre-booted Komi embed. When closed it
+ * is fully transparent and click-through (opacity 0 + pointer-events: none) but
+ * it MUST keep its real size and stay in the render tree — display:none or a
+ * zero-size box would make the browser defer the iframe's load, defeating the
+ * whole "already rendered" goal. So we hide it visually, not structurally.
+ */
+.listen-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  display: grid;
+  place-items: center;
+  padding: clamp(1rem, 4vw, 3rem);
+  background: rgba(3, 1, 0, 0.82);
+  backdrop-filter: blur(6px);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 260ms ease;
+}
+
+.listen-overlay.is-open {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.listen-frame {
+  width: min(100%, 900px);
+  height: min(88svh, 1000px);
+  border: 0;
+  border-radius: 14px;
+  background: #0d0d0d;
+  color-scheme: normal;
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.6);
+  /* Nudge the parked (closed) frame off-interaction without unmounting it. */
+  transform: scale(0.98);
+  transition: transform 260ms ease;
+}
+
+.listen-overlay.is-open .listen-frame {
+  transform: scale(1);
+}
+
+.listen-close {
+  position: absolute;
+  top: max(16px, env(safe-area-inset-top));
+  right: max(16px, env(safe-area-inset-right));
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 205, 120, 0.85);
+  cursor: pointer;
+  transition: color 180ms ease, background 180ms ease, transform 180ms ease;
+}
+
+.listen-close:hover,
+.listen-close:focus-visible {
+  outline: none;
+  color: rgba(255, 220, 150, 1);
+  background: rgba(255, 255, 255, 0.12);
+  transform: scale(1.08);
+}
+
+.listen-close svg {
+  width: 22px;
+  height: 22px;
+  display: block;
+}
+
+/* Lock background scroll/interaction while the overlay is open. */
+body.overlay-open {
+  overflow: hidden;
 }
