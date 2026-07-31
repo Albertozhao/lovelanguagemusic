@@ -75,6 +75,13 @@ body {
   inset: 0;
   display: grid;
   place-items: center;
+  /*
+   * place-items centers the figurine within its grid track, but when the
+   * object is wider than the viewport (132vw on mobile) that track is the
+   * viewport width, so the overflow spills to one side and the figure reads
+   * off-center. Centering the track's content too makes it overflow evenly.
+   */
+  place-content: center;
   perspective: 1100px;
   perspective-origin: 50% 48%;
 }
