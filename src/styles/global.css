@@ -302,6 +302,40 @@ body {
 }
 
 /*
+ * Social row pinned just under the Listen link, sharing its gold Cinzel-adjacent
+ * palette. Plain-shape SVGs (no external icon font/CDN) so it stays consistent
+ * with the site's all-assets-local approach.
+ */
+.social-links {
+  position: absolute;
+  top: calc(max(24px, env(safe-area-inset-top)) + 34px);
+  left: max(24px, env(safe-area-inset-left));
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.social-links a {
+  display: inline-flex;
+  color: rgba(255, 187, 83, 0.55);
+  transition: color 200ms ease, transform 200ms ease;
+}
+
+.social-links a:hover,
+.social-links a:focus-visible {
+  color: rgba(255, 205, 120, 0.95);
+  outline: none;
+  transform: translateY(-1px);
+}
+
+.social-links svg {
+  width: 18px;
+  height: 18px;
+  display: block;
+}
+
+/*
  * Full-screen Listen overlay holding the pre-booted Komi embed. When closed it
  * is fully transparent and click-through (opacity 0 + pointer-events: none) but
  * it MUST keep its real size and stay in the render tree — display:none or a
